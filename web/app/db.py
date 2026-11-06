@@ -56,42 +56,55 @@ def guardar_solicitud(registro: dict) -> int:
     with engine.begin() as conn:
         resultado = conn.execute(consulta, valores)
         return resultado.scalar_one()
-#Elle renvoie au maximum huit demandes, des plus récentes aux plus anciennes, sans inclure les prompts
+
 def obtener_estadisticas() -> dict:
     """TODO(ALUMNADO): total, agrupación por ciudad/tipo y nº errores."""
     if engine is None:
         raise RuntimeError("Falta DATABASE_URL")
-    if limite<0:
-        raise ValueError("El límite debe ser un número positivo")
-    consulta = text("""
-        Select id,fehca,cuidad, tipo_turism, estado, duracion_ms
-        from solicitudes
-        order by fecha DESC id DESC
-        limit :limite
-    """)
-    with engine.connect() as conn:
-        filas = conn.execute(
-            consulta,
-            {"limite": limite}
-        ).mappings().all()
 
-    return [dict(fila) for fila in filas]
+    with engine.connect() as conn:
+        resumen = conn.execute(text("""
+            SELECT
+                COUNT(*) AS total,
+                COUNT(*) FILTER (
+                    WHERE estado = 'error' OR error_resumido IS NOT NULL
+                ) AS errores
+            FROM solicitudes
+        """)).mappings().one()
+
+        ciudades = conn.execute(text("""
+            SELECT ciudad, COUNT(*) AS cantidad
+            FROM solicitudes
+            GROUP BY ciudad
+            ORDER BY cantidad DESC, ciudad
+        """)).mappings().all()
+
+        tipos = conn.execute(text("""
+            SELECT tipo_turismo, COUNT(*) AS cantidad
+            FROM solicitudes
+            GROUP BY tipo_turismo
+            ORDER BY cantidad DESC, tipo_turismo
+        """)).mappings().all()
+
+    return {
+        "total": resumen["total"],
+        "errores": resumen["errores"],
+        "por_ciudad": [dict(fila) for fila in ciudades],
+        "por_tipo": [dict(fila) for fila in tipos],
+    }
 
 def obtener_ultimas_solicitudes(limite: int = 8) -> list[dict]:
     """TODO(ALUMNADO): últimas solicitudes sin mostrar claves ni secretos."""
     if engine is None:
         raise RuntimeError("Falta DATABASE_URL")
-
     if limite < 0:
         raise ValueError("El límite no puede ser negativo")
-
     consulta = text("""
         SELECT id, fecha, ciudad, tipo_turismo, estado, duracion_ms
         FROM solicitudes
         ORDER BY fecha DESC, id DESC
         LIMIT :limite
     """)
-
     with engine.connect() as conn:
         filas = conn.execute(
             consulta,
