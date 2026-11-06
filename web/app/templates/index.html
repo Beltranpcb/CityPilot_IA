@@ -15,6 +15,42 @@
        Campo opcional: preferencias (textarea de 200 caracteres aprox.).
        Botón submit. Etiquetas accesibles y validación básica HTML.
        IMPORTANTE: no se proporciona el HTML del formulario. -->
+       <form action="/planificar" method="POST">
+  <label for="ciudad">Ville</label>
+  <input
+    type="text"
+    id="ciudad"
+    name="ciudad"
+    maxlength="80"
+    required
+  >
+
+  <label for="tipo_turismo">Type de tourisme</label>
+  <select id="tipo_turismo" name="tipo_turismo" required>
+    <option value="cultural">Culturel</option>
+    <option value="gastronomica">Gastronomique</option>
+    <option value="naturaleza">Nature</option>
+    <option value="familiar">Familial</option>
+  </select>
+
+  <label for="duracion_horas">Durée</label>
+  <select id="duracion_horas" name="duracion_horas" required>
+    <option value="2">2 heures</option>
+    <option value="4" selected>4 heures</option>
+    <option value="6">6 heures</option>
+  </select>
+
+  <label for="preferencias">Préférences (facultatif)</label>
+  <textarea
+    id="preferencias"
+    name="preferencias"
+    maxlength="200"
+    rows="3"
+  ></textarea>
+
+  <button type="submit">Générer mon itinéraire</button>
+</form>
+
   <div class="todo">🛠️ <strong>Por implementar:</strong> formulario de preferencias y botón «Generar mi ruta».</div>
 </section>
 <section class="three">

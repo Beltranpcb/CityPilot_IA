@@ -1,5 +1,6 @@
 """Acceso a PostgreSQL. Conexión mínima dada; funciones de negocio pendientes."""
 import os
+import json
 from sqlalchemy import create_engine, text
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
@@ -12,28 +13,101 @@ def ping_db():
     with engine.connect() as conn:
         return conn.execute(text("SELECT 1")).scalar_one()
 
-
 def guardar_solicitud(registro: dict) -> int:
-    """TODO(ALUMNADO): INSERT parametrizado; devolver id de solicitud.
+    consulta = text("""
+        INSERT INTO solicitudes (
+            ciudad, pais, tipo_turismo, duracion_horas, preferencias,
+            latitud, longitud, meteorologia, lugares, prompt_usado,
+            itinerario, estado, duracion_ms, error_resumido,
+            modo_demo, modo_modelo
+        ) VALUES (
+            :ciudad, :pais, :tipo_turismo, :duracion_horas, :preferencias,
+            :latitud, :longitud,
+            CAST(:meteorologia AS jsonb),
+            CAST(:lugares AS jsonb),
+            :prompt_usado, :itinerario, :estado, :duracion_ms,
+            :error_resumido, :modo_demo, :modo_modelo
+        )
+        RETURNING id
+    """)
 
-    La tabla existente es `solicitudes`. `registro` debe incluir: ciudad,
-    pais, tipo_turismo, duracion_horas, preferencias, latitud, longitud,
-    meteorologia, lugares, prompt_usado, itinerario, estado, duracion_ms,
-    error_resumido, modo_demo y modo_modelo. Los diccionarios/listas van
-    a columnas JSONB: podéis usar json.dumps(...) y CAST(:dato AS jsonb)
-    o declarar el tipo JSONB en el parámetro enlazado.
+    valores = {
+        "ciudad": registro["ciudad"],
+        "pais": registro.get("pais"),
+        "tipo_turismo": registro["tipo_turismo"],
+        "duracion_horas": registro["duracion_horas"],
+        "preferencias": registro.get("preferencias", ""),
+        "latitud": registro.get("latitud"),
+        "longitud": registro.get("longitud"),
+        "meteorologia": json.dumps(registro.get("meteorologia", {})),
+        "lugares": json.dumps(registro.get("lugares", [])),
+        "prompt_usado": registro.get("prompt_usado"),
+        "itinerario": registro.get("itinerario"),
+        "estado": registro.get("estado", "pendiente"),
+        "duracion_ms": registro.get("duracion_ms"),
+        "error_resumido": registro.get("error_resumido"),
+        "modo_demo": registro.get("modo_demo", False),
+        "modo_modelo": registro.get("modo_modelo"),
+    }
 
-    Pistas: with engine.begin() as conn; text(...); RETURNING id.
-    Nunca concatenar strings de entrada dentro del SQL.
-    """
-    raise NotImplementedError("Implementa INSERT en PostgreSQL")
+    if engine is None:
+        raise RuntimeError("Falta DATABASE_URL")
 
+    with engine.begin() as conn:
+        resultado = conn.execute(consulta, valores)
+        return resultado.scalar_one()
 
 def obtener_estadisticas() -> dict:
     """TODO(ALUMNADO): total, agrupación por ciudad/tipo y nº errores."""
-    raise NotImplementedError("Implementa SELECTs de analítica")
+    if engine is None:
+        raise RuntimeError("Falta DATABASE_URL")
 
+    with engine.connect() as conn:
+        resumen = conn.execute(text("""
+            SELECT
+                COUNT(*) AS total,
+                COUNT(*) FILTER (
+                    WHERE estado = 'error' OR error_resumido IS NOT NULL
+                ) AS errores
+            FROM solicitudes
+        """)).mappings().one()
+
+        ciudades = conn.execute(text("""
+            SELECT ciudad, COUNT(*) AS cantidad
+            FROM solicitudes
+            GROUP BY ciudad
+            ORDER BY cantidad DESC, ciudad
+        """)).mappings().all()
+
+        tipos = conn.execute(text("""
+            SELECT tipo_turismo, COUNT(*) AS cantidad
+            FROM solicitudes
+            GROUP BY tipo_turismo
+            ORDER BY cantidad DESC, tipo_turismo
+        """)).mappings().all()
+
+    return {
+        "total": resumen["total"],
+        "errores": resumen["errores"],
+        "por_ciudad": [dict(fila) for fila in ciudades],
+        "por_tipo": [dict(fila) for fila in tipos],
+    }
 
 def obtener_ultimas_solicitudes(limite: int = 8) -> list[dict]:
     """TODO(ALUMNADO): últimas solicitudes sin mostrar claves ni secretos."""
-    raise NotImplementedError("Implementa SELECT con ORDER BY fecha DESC LIMIT")
+    if engine is None:
+        raise RuntimeError("Falta DATABASE_URL")
+    if limite < 0:
+        raise ValueError("El límite no puede ser negativo")
+    consulta = text("""
+        SELECT id, fecha, ciudad, tipo_turismo, estado, duracion_ms
+        FROM solicitudes
+        ORDER BY fecha DESC, id DESC
+        LIMIT :limite
+    """)
+    with engine.connect() as conn:
+        filas = conn.execute(
+            consulta,
+            {"limite": limite}
+        ).mappings().all()
+    return [dict(fila) for fila in filas]
