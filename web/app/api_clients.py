@@ -9,6 +9,10 @@ METEO_URL = os.getenv("OPEN_METEO_WEATHER_URL", "https://api.open-meteo.com/v1/f
 OVERPASS_URL = os.getenv("OVERPASS_URL", "https://overpass-api.de/api/interpreter")
 
 TIMEOUT = 8
+HEADERS = {
+    "User-Agent": "CityPilotIA/1.0 (taller educativo; contacto: misandser@gmail.com)",
+    "Accept": "*/*",
+}
 
 
 class CiudadNoEncontrada(ValueError):
@@ -80,17 +84,83 @@ def obtener_meteorologia(lat: float, lon: float) -> dict:
         "instante": actual.get("time"),
     }
 
+ETIQUETAS_POR_TIPO = {
+    "cultural": [
+        ("tourism", "museum|attraction|gallery"),
+        ("historic", "monument|castle|memorial"),
+    ],
+    "gastronomica": [
+        ("amenity", "restaurant|cafe|food_court"),
+    ],
+    "naturaleza": [
+        ("leisure", "park|garden"),
+    ],
+    "familiar": [
+        ("tourism", "attraction|zoo"),
+        ("leisure", "park|playground"),
+    ],
+}
+MAX_LUGARES = 12
+RADIO_M = 2500
 
 def obtener_lugares(lat: float, lon: float, tipo: str) -> list[dict]:
-    """TODO(ALUMNADO).
+    """Coordenadas + tipo -> lista normalizada de lugares reales de OSM.
 
-    Consultar un radio urbano acotado de Overpass/OSM (2-3 km).
-    Filtrar según tipo: cultural, gastronomica, naturaleza, familiar.
-    Normalizar a [{nombre, categoria, lat, lon, fuente, ...}], máximo
-    8-12 lugares. Gestionar nodos (lat/lon) y ways/relations (center).
-    Nunca introducir valores libres del usuario en una consulta QL.
+    Un solo intento. Lanza ErrorProveedor si Overpass falla o no responde.
+    Devuelve [] si no hay lugares con nombre.
     """
-    raise NotImplementedError("Implementa consulta de puntos de interés")
+    if tipo not in ETIQUETAS_POR_TIPO:
+        raise ValueError(f"Tipo de turismo no permitido: {tipo!r}")
+
+    lat = float(lat)
+    lon = float(lon)
+
+    filtros = ""
+    for clave, valores in ETIQUETAS_POR_TIPO[tipo]:
+        filtros += f'  nwr(around:{RADIO_M},{lat},{lon})["{clave}"~"^({valores})$"]["name"];\n'
+
+    consulta = f"[out:json][timeout:25];\n(\n{filtros});\nout center 60;"
+
+    try:
+        r = requests.post(OVERPASS_URL, data={"data": consulta}, headers=HEADERS, timeout=30)
+        r.raise_for_status()
+        contenido = r.json()
+    except (requests.RequestException, ValueError) as e:
+        raise ErrorProveedor("No se pudo consultar OpenStreetMap (Overpass).") from e
+
+    lugares = []
+    vistos = set()
+    for el in contenido.get("elements", []):
+        tags = el.get("tags") or {}
+        nombre = (tags.get("name") or "").strip()
+        if not nombre or nombre.lower() in vistos:
+            continue
+
+        if el.get("type") == "node":
+            punto_lat, punto_lon = el.get("lat"), el.get("lon")
+        else:
+            centro = el.get("center") or {}
+            punto_lat, punto_lon = centro.get("lat"), centro.get("lon")
+        if punto_lat is None or punto_lon is None:
+            continue
+
+        categoria = (
+            tags.get("tourism") or tags.get("historic")
+            or tags.get("amenity") or tags.get("leisure") or tipo
+        )
+        vistos.add(nombre.lower())
+        lugares.append({
+            "nombre": nombre,
+            "categoria": categoria,
+            "lat": float(punto_lat),
+            "lon": float(punto_lon),
+            "fuente": "OpenStreetMap",
+            "demo": False,
+        })
+        if len(lugares) >= MAX_LUGARES:
+            break
+
+    return lugares
 
 
 def cargar_fixture_lugares() -> list[dict]:
