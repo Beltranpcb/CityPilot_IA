@@ -8,27 +8,77 @@ GEO_URL = os.getenv("OPEN_METEO_GEO_URL", "https://geocoding-api.open-meteo.com/
 METEO_URL = os.getenv("OPEN_METEO_WEATHER_URL", "https://api.open-meteo.com/v1/forecast")
 OVERPASS_URL = os.getenv("OVERPASS_URL", "https://overpass-api.de/api/interpreter")
 
+TIMEOUT = 8
+
+
+class CiudadNoEncontrada(ValueError):
+    """La ciudad no existe en el geocodificador (error del usuario, 400)."""
+
+
+class ErrorProveedor(Exception):
+    """Falla un servicio externo: HTTP, timeout o JSON raro (502/503)."""
 
 def geocodificar(ciudad: str) -> dict:
-    """TODO(ALUMNADO).
+    """Ciudad -> {'ciudad', 'pais', 'lat', 'lon'} usando Open-Meteo Geocoding.
 
-    Entrada: 'Valencia'. Salida normalizada: {'ciudad': 'Valencia',
-    'pais': 'España', 'lat': 39.47, 'lon': -0.38} (números ilustrativos).
-    Usar Open-Meteo Geocoding y controlar búsqueda sin resultados.
-    Restricción: peticiones con timeout, filtrando countryCode='ES' si se
-    decide limitar a España.
+    Lanza CiudadNoEncontrada si no hay coincidencia y ErrorProveedor si falla el servicio.
     """
-    raise NotImplementedError("Implementa búsqueda de coordenadas")
+    ciudad = (ciudad or "").strip()
+    if not ciudad:
+        raise CiudadNoEncontrada("La ciudad está vacía.")
+
+    params = {"name": ciudad, "count": 1, "language": "es", "countryCode": "ES"}
+    try:
+        r = requests.get(GEO_URL, params=params, timeout=TIMEOUT)
+        r.raise_for_status()
+        contenido = r.json()
+    except (requests.RequestException, ValueError) as e:
+        raise ErrorProveedor("No se pudo consultar el servicio de geocodificación.") from e
+
+    resultados = contenido.get("results")
+    if not resultados:
+        raise CiudadNoEncontrada(f"No se ha encontrado la ciudad «{ciudad}» en España.")
+
+    primero = resultados[0]
+    try:
+        return {
+            "ciudad": primero["name"],
+            "pais": primero.get("country", "España"),
+            "lat": float(primero["latitude"]),
+            "lon": float(primero["longitude"]),
+        }
+    except (KeyError, TypeError, ValueError) as e:
+        raise ErrorProveedor("Respuesta de geocodificación incompleta.") from e
 
 
 def obtener_meteorologia(lat: float, lon: float) -> dict:
-    """TODO(ALUMNADO).
+    """Coordenadas -> condiciones actuales normalizadas (Open-Meteo Forecast).
 
-    Devolver, como mínimo: temperatura_c, precipitacion_mm,
-    codigo_tiempo, instante. Seleccionar current=temperature_2m,
-    precipitation,weather_code e incluir timezone=auto.
+    Los campos ausentes se devuelven como None, nunca como 0.
     """
-    raise NotImplementedError("Implementa consulta meteorológica")
+    params = {
+        "latitude": lat,
+        "longitude": lon,
+        "current": "temperature_2m,precipitation,weather_code",
+        "timezone": "auto",
+    }
+    try:
+        r = requests.get(METEO_URL, params=params, timeout=TIMEOUT)
+        r.raise_for_status()
+        contenido = r.json()
+    except (requests.RequestException, ValueError) as e:
+        raise ErrorProveedor("No se pudo consultar el servicio meteorológico.") from e
+
+    actual = contenido.get("current")
+    if not isinstance(actual, dict):
+        raise ErrorProveedor("Respuesta meteorológica sin datos actuales.")
+
+    return {
+        "temperatura_c": actual.get("temperature_2m"),
+        "precipitacion_mm": actual.get("precipitation"),
+        "codigo_tiempo": actual.get("weather_code"),
+        "instante": actual.get("time"),
+    }
 
 
 def obtener_lugares(lat: float, lon: float, tipo: str) -> list[dict]:
