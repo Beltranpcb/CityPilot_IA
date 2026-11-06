@@ -10,7 +10,7 @@ OVERPASS_URL = os.getenv("OVERPASS_URL", "https://overpass-api.de/api/interprete
 
 TIMEOUT = 8
 HEADERS = {
-    "User-Agent": "CityPilotIA/1.0 (taller educativo; contacto: misandser@gmail.com)",
+    "User-Agent": "CityPilotIA/1.0 (taller educativo; contacto: CORREO@gmail.com)", #AQUI HAY QUE PONER UN CORREO
     "Accept": "*/*",
 }
 
