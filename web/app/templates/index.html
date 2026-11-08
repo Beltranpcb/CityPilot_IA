@@ -8,50 +8,40 @@
 </section>
 <section class="surface">
   <h2>Tu plan para hoy</h2>
-  <!-- TODO(ALUMNADO): construir aquí un formulario HTML real.
-       action="/planificar", method="POST".
-       Campos obligatorios: ciudad (texto), tipo_turismo (select con
-       cultural/gastronomica/naturaleza/familiar), duracion_horas (2,4,6).
-       Campo opcional: preferencias (textarea de 200 caracteres aprox.).
-       Botón submit. Etiquetas accesibles y validación básica HTML.
-       IMPORTANTE: no se proporciona el HTML del formulario. -->
-       <form action="/planificar" method="POST">
-  <label for="ciudad">Ville</label>
-  <input
-    type="text"
-    id="ciudad"
-    name="ciudad"
-    maxlength="80"
-    required
-  >
+  <form action="/planificar" method="POST">
+    <div>
+      <label for="ciudad">Ciudad</label>
+      <input type="text" id="ciudad" name="ciudad" maxlength="80" required placeholder="Por ejemplo, Valencia">
+    </div>
 
-  <label for="tipo_turismo">Type de tourisme</label>
-  <select id="tipo_turismo" name="tipo_turismo" required>
-    <option value="cultural">Culturel</option>
-    <option value="gastronomica">Gastronomique</option>
-    <option value="naturaleza">Nature</option>
-    <option value="familiar">Familial</option>
-  </select>
+    <div>
+      <label for="tipo_turismo">Tipo de turismo</label>
+      <select id="tipo_turismo" name="tipo_turismo" required>
+        <option value="cultural">Cultural</option>
+        <option value="gastronomica">Gastronómico</option>
+        <option value="naturaleza">Naturaleza</option>
+        <option value="familiar">Familiar</option>
+      </select>
+    </div>
 
-  <label for="duracion_horas">Durée</label>
-  <select id="duracion_horas" name="duracion_horas" required>
-    <option value="2">2 heures</option>
-    <option value="4" selected>4 heures</option>
-    <option value="6">6 heures</option>
-  </select>
+    <div>
+      <label for="duracion_horas">Duración</label>
+      <select id="duracion_horas" name="duracion_horas" required>
+        <option value="2">2 horas</option>
+        <option value="4" selected>4 horas</option>
+        <option value="6">6 horas</option>
+      </select>
+    </div>
 
-  <label for="preferencias">Préférences (facultatif)</label>
-  <textarea
-    id="preferencias"
-    name="preferencias"
-    maxlength="200"
-    rows="3"
-  ></textarea>
+    <div>
+      <label for="preferencias">Preferencias (opcional)</label>
+      <textarea id="preferencias" name="preferencias" maxlength="200" rows="3" placeholder="Por ejemplo, poco caminar o con niños"></textarea>
+    </div>
 
-  <button type="submit">Générer mon itinéraire</button>
-</form>
-
-  <div class="todo">🛠️ <strong>Por implementar:</strong> formulario de preferencias y botón «Generar mi ruta».</div>
+    <div>
+      <button type="submit">Generar mi ruta</button>
+    </div>
+  </form>
 </section>
 <section class="three">
   <article class="tile"><h3>🌤️ Meteo</h3><p>El plan tendrá en cuenta el tiempo.</p></article>

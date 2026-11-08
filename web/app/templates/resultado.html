@@ -1,13 +1,78 @@
 {% extends "base.html" %}
 {% block title %}Mi ruta · CityPilot IA{% endblock %}
 {% block content %}
-<section class="hero"><span class="eyebrow">TU ITINERARIO</span><h1>Un día diferente</h1></section>
-<section class="surface">
-  <!-- TODO(ALUMNADO): mostrar ciudad, tipo, temperatura, lluvia,
-       3-5 paradas, enlaces individuales a OSM si hay coordenadas,
-       tiempo estimado y texto generado por el modelo.
-       Si modo_demo: mostrar un aviso muy visible de DATOS SIMULADOS.
-       Si hay error: mostrar mensaje comprensible sin secretos. -->
-  <div class="todo">🛠️ Por implementar: resultado del planificador.</div>
+{% if error %}
+<section class="hero">
+  <span class="eyebrow">NO SE HA PODIDO GENERAR LA RUTA</span>
+  <h1>Algo ha fallado</h1>
 </section>
+<section class="surface">
+  <div class="notice">{{ error }}</div>
+  <p>Revisa los datos del formulario o vuelve a intentarlo en unos minutos.</p>
+  <p><a class="button" href="/">Volver al formulario</a></p>
+</section>
+{% else %}
+<section class="hero">
+  <span class="eyebrow">TU ITINERARIO</span>
+  <h1>{{ tipo_turismo|capitalize }} en {{ ciudad }}</h1>
+  <p>Ruta pensada para {{ duracion_horas }} horas, con los lugares y el tiempo de hoy.</p>
+</section>
+
+{% if modo_demo %}
+<div class="notice"><strong>DATOS SIMULADOS.</strong> No se ha podido consultar OpenStreetMap, así que los lugares son de demostración y no existen en la realidad.</div>
+{% endif %}
+{% if modo_modelo == 'mock' %}
+<div class="notice"><strong>MODO SIMULACIÓN.</strong> El texto del itinerario no lo ha generado un modelo de IA.</div>
+{% endif %}
+
+<section class="three">
+  <article class="tile">
+    <h3>🌡️ Temperatura</h3>
+    <p class="metric">{% if meteorologia and meteorologia.temperatura_c is not none %}{{ meteorologia.temperatura_c }} °C{% else %}—{% endif %}</p>
+  </article>
+  <article class="tile">
+    <h3>🌧️ Lluvia</h3>
+    <p class="metric">{% if meteorologia and meteorologia.precipitacion_mm is not none %}{{ meteorologia.precipitacion_mm }} mm{% else %}—{% endif %}</p>
+    <p>{% if meteorologia and meteorologia.precipitacion_mm is not none and meteorologia.precipitacion_mm > 0 %}Está lloviendo ahora mismo.{% elif meteorologia and meteorologia.precipitacion_mm is not none %}Ahora no llueve.{% else %}Dato no disponible.{% endif %}</p>
+  </article>
+  <article class="tile">
+    <h3>⏱️ Tiempo estimado</h3>
+    <p class="metric">{{ duracion_horas }} h</p>
+  </article>
+</section>
+
+<section class="surface">
+  <h2>Tu ruta</h2>
+  <div class="itinerario">{{ itinerario }}</div>
+  <p><small>Los horarios de apertura no están verificados.</small></p>
+</section>
+
+<section class="surface">
+  <h2>Lugares consultados{% if modo_demo %} (demostración){% endif %}</h2>
+  {% if lugares %}
+  <table class="data-table">
+    <thead>
+      <tr><th>Lugar</th><th>Categoría</th><th>Mapa</th></tr>
+    </thead>
+    <tbody>
+      {% for lugar in lugares %}
+      <tr>
+        <td>{{ lugar.nombre }}{% if lugar.demo %} <em>(demo)</em>{% endif %}</td>
+        <td>{{ lugar.categoria or '—' }}</td>
+        <td>
+          {% if lugar.lat is not none and lugar.lon is not none %}
+          <a href="https://www.openstreetmap.org/?mlat={{ lugar.lat }}&amp;mlon={{ lugar.lon }}#map=17/{{ lugar.lat }}/{{ lugar.lon }}" target="_blank" rel="noopener">Ver en OpenStreetMap</a>
+          {% else %}—{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>No se han encontrado lugares para esta búsqueda.</p>
+  {% endif %}
+</section>
+
+<p><a class="button" href="/">Planificar otra ruta</a></p>
+{% endif %}
 {% endblock %}
